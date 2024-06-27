@@ -1,4 +1,5 @@
 import os
+import sys 
 import vtk 
 import tqdm 
 import torch 
@@ -74,5 +75,15 @@ class DatasetVTI(Dataset):
         output_vti = read_vti(dp / self.output_filename) 
         output_chunk = output_vti[:, :, idx * self.num_slices: (idx+1) * self.num_slices] 
         output_chunk = np.transpose(output_chunk, (2, 0, 1)) 
-        return input_chunk, output_chunk 
+        
+        return {
+                "input": torch.tensor(input_chunk, dtype=torch.float), 
+                "target": torch.tensor(output_chunk, dtype=torch.float) 
+            }
 
+
+if __name__ == "__main__": 
+    root_dir = sys.argv(1) if len(sys.argv) > 1 else "/mnt/WoodSeer/Slicing" 
+    dataset = DatasetVTI(root_dir=root_dir, input_filename="xray.vti", output_filename="mes_0_255_0.vti") 
+    print(f"Input: {dataset[0]['input'].shape}\t Target: {dataset[0]['target'].shape}") 
+    print(f"Len Dataset: {len(dataset)}")  
