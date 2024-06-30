@@ -4,7 +4,7 @@ import random
 
 from torch.utils.data import DataLoader  # type: ignore
 
-from dataset import DatasetVTI
+from .dataset import DatasetVTI
 
 
 def create_datasets(
