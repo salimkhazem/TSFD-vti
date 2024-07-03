@@ -1,0 +1,26 @@
+--- 
+Dataset: 
+  cls: "DatasetVTI"
+  args: 
+    root_dir: "/mnt/WoodSeer/Slicing" 
+    resize: 256 
+
+Data: 
+  Batch_size: 32 
+  Shuffle: True 
+
+Model: 
+  Name: "ContourVTI" 
+
+Loss: 
+  Name: "BCEWithLogitsLoss" 
+
+Optimizer:
+  Name: "Adam"
+
+Training: 
+  Epochs: 50 
+  SEED: 42 
+  LR: 0.001
+  Multi_GPU: False 
+
