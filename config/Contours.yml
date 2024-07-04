@@ -2,7 +2,7 @@
 Dataset: 
   cls: "DatasetVTI"
   args: 
-    root_dir: "/mnt/WoodSeer/Slicing" 
+    root_dir: "/Users/salimkhazem/Workspace/phd_thesis/dataset_vti" 
     resize: 256 
 
 Data: 
@@ -17,6 +17,7 @@ Loss:
 
 Optimizer:
   Name: "Adam"
+  lr: 0.001
 
 Training: 
   Epochs: 50 
