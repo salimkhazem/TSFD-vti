@@ -2,6 +2,8 @@
 This module contains the DatasetVTI class, which is a subclass of the PyTorch
 Dataset class. It is used to load VTI files and extract slices from them.
 """
+
+import cv2
 import torch
 import tqdm
 import vtk
@@ -45,10 +47,12 @@ class DatasetVTI(Dataset):
         self,
         data_paths,
         num_slices=1,
+        resize=256,
         augmentation=None,
         input_filename="xray.vti",
         output_filename="contours.vti",
     ):
+        self.resize = resize
         self.num_slices = num_slices
         self.transform = augmentation
         self.input_filename = input_filename
@@ -86,13 +90,23 @@ class DatasetVTI(Dataset):
         hmin, hmax = 100, 1500
         input_chunk = np.clip(input_chunk, hmin, hmax)
         input_chunk = 2.0 * ((input_chunk - hmin) / (hmax - hmin) - 0.5)
-        if self.transform is not None:
-            input_chunk = self.transform(input_chunk)
         output_vti = read_vti(dp / self.output_filename)
         output_chunk = output_vti[
             :, :, idx * self.num_slices: (idx + 1) * self.num_slices
         ]
         output_chunk = np.transpose(output_chunk, (2, 0, 1))
+        if self.resize is not None:
+            input_chunk = cv2.resize(
+                input_chunk[0], (self.resize, self.resize)
+            )
+            input_chunk = np.expand_dims(input_chunk, axis=0)
+            output_chunk = cv2.resize(
+                output_chunk[0], (self.resize, self.resize)
+            )
+            output_chunk = np.expand_dims(output_chunk, axis=0)
+        if self.transform is not None:
+            input_chunk = self.transform(input_chunk)
+            output_chunk = self.transform(output_chunk)
 
         return {
             "input": torch.tensor(input_chunk, dtype=torch.float),
