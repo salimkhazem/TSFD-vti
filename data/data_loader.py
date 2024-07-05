@@ -4,12 +4,15 @@ import random
 
 from torch.utils.data import DataLoader  # type: ignore
 
-from .dataset import DatasetVTI
-
+try: 
+    from dataset import DatasetVTI
+except: 
+    from .dataset import DatasetVTI
 
 def create_datasets(
     root_dir,
     num_slices=1,
+    resize=256, 
     augmentation=None,
     validation_split=0.2,
     input_filename="xray.vti",
@@ -44,18 +47,19 @@ def create_datasets(
     validation_size = int(len(all_data_paths) * validation_split)
     validation_paths = all_data_paths[:validation_size]
     training_paths = all_data_paths[validation_size:]
-
     train_dataset = DatasetVTI(
         training_paths,
         num_slices,
+        resize, 
         augmentation,
         input_filename,
-        output_filename,
+        output_filename
     )
     val_dataset = DatasetVTI(
         validation_paths,
         num_slices,
-        augmentation,
+        resize, 
+        augmentation, 
         input_filename,
         output_filename,
     )
@@ -78,8 +82,10 @@ def create_dataloaders(
 if __name__ == "__main__":
     root_dir = "/mnt/WoodSeer/Slicing"
     train_dataset, valid_dataset, train_paths, valid_paths = create_datasets(
-        root_dir, validation_split=0.2
+        root_dir, resize=256, validation_split=0.2
     )
     train_loader, valid_loader = create_dataloaders(
         train_dataset, valid_dataset
     )
+    for data in valid_loader: 
+        print(data["input"].shape, data["target"].shape) 
