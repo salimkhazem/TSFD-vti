@@ -2,7 +2,7 @@
 Dataset: 
   cls: "DatasetVTI"
   args: 
-    root_dir: "/Users/salimkhazem/Workspace/phd_thesis/dataset_vti" 
+    root_dir: "/mnt/WoodSeer/Slicing" 
     resize: 256 
 
 Data: 
