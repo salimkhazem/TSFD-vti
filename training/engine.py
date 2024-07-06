@@ -1,27 +1,29 @@
 import torch
+import logging 
+from tqdm.auto import tqdm 
 
-from tqdm import tqdm 
+logger_file = logging.getLogger('main_file')
 
 
-
-def train_one_epoch(model, criterion, optimizer, data_loader, device):
-    print("Training model")
+def train_one_epoch(model, criterion, optimizer, data_loader, grad_norm, device):
+    if device is None: 
+        device = next(model.parameters()).device 
+    loss_model, acc_model = 0, 0 
     model.train()
     with tqdm(data_loader, desc=f"Training", leave=False) as pbar: 
-        total_loss = 0 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
             assert images.shape[1] == model.n_channels, f"Expected {model.n_channels} channels, got {images.shape[0]}" 
             optimizer.zero_grad()
-            output = model(images)
+            output = model(images) 
+            acc_model += (output.argmax(1) == targets).sum().item()
             loss = criterion(output, targets)
-            pbar.set_postfix(**{"train_loss": loss.item()})
+            loss_model += loss.item()
             loss.backward()
             optimizer.step()
+            pbar.set_postfix(**{"train_loss": loss.item()})
             pbar.update(images.shape[0])
-            total_loss += loss.item()
-            #pbar.set_postfix({"loss": total_loss / len(data_loader)})
-
+    return loss_model/len(data_loader.dataset), acc_model/len(data_loader.dataset)
 
 
 
@@ -30,9 +32,9 @@ def evaluate(model, criterion, data_loader, device):
     if device is None: 
         device = next(model.parameters()).device
     model.eval()
-    with tqdm(data_loader, desc=f"Evaluating", leave=False) as pbar: 
-        total_loss = 0
-        correct_pred = 0 
+    total_loss = 0
+    correct_pred = 0 
+    with tqdm(data_loader, desc=f"Validation", leave=False) as pbar: 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
             assert images.shape[1] == model.n_channels, f"Expected {model.n_channels} channels, got {images.shape[0]}" 
@@ -42,4 +44,4 @@ def evaluate(model, criterion, data_loader, device):
             total_loss += loss.item()
             pbar.set_postfix(**{"eval_loss": loss.item()})
             pbar.update(images.shape[0])
-            #pbar.set_postfix({"loss": total_loss / len(data_loader)})
+    return total_loss/len(data_loader.dataset), correct_pred/len(data_loader.dataset)
