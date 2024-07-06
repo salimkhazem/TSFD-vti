@@ -46,6 +46,9 @@ def seed_everything(seed: int = 42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+def get_device():
+    """ function to get the device """ 
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ProgressParallel(Parallel):
     def __init__(
