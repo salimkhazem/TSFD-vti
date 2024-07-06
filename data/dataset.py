@@ -63,19 +63,25 @@ class DatasetVTI(Dataset):
         for dp in tqdm.tqdm(self.data_paths, desc="Parsing VTI file"):
             input_vti = read_vti(dp / input_filename)
             output_vti = read_vti(dp / output_filename)
-            if input_vti.shape != output_vti.shape:
+            if (
+                input_vti is None
+                or output_vti is None
+                or input_vti.shape != output_vti.shape
+            ):
                 raise RuntimeError(
                     f"Got different input/targets shape, {input_vti.shape} != {output_vti.shape}"
                 )
+                continue
             self.num_chunks_per_file.append(
                 input_vti.shape[2] // self.num_slices
             )
         self.total_num_chunks = sum(self.num_chunks_per_file)
 
     def __len__(self):
-        return self.total_num_chunks
+        return self.total_num_chunks * len(self.data_paths)
 
     def __getitem__(self, idx):
+        assert idx >= 0 and idx < self.total_num_chunks
         for idp, (dp, nc) in enumerate(
             zip(self.data_paths, self.num_chunks_per_file)
         ):
@@ -92,9 +98,12 @@ class DatasetVTI(Dataset):
         input_chunk = 2.0 * ((input_chunk - hmin) / (hmax - hmin) - 0.5)
         output_vti = read_vti(dp / self.output_filename)
         output_chunk = output_vti[
-            :, :, idx * self.num_slices: (idx + 1) * self.num_slices
+            :, :, (idx) * self.num_slices: (idx + 1) * self.num_slices
         ]
         output_chunk = np.transpose(output_chunk, (2, 0, 1))
+        assert (
+            input_chunk.shape == output_chunk.shape
+        ), f"Expected {input_chunk.shape} but got {output_chunk.shape}"
         if self.resize is not None:
             input_chunk = cv2.resize(
                 input_chunk[0], (self.resize, self.resize)
