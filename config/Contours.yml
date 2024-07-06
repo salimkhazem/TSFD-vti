@@ -11,7 +11,10 @@ Data:
   Shuffle: True 
 
 Model: 
-  Name: "ContourVTI" 
+  Name: "UNet" 
+  args: 
+    in_channels: 1
+    nb_classes: 1
 
 Loss: 
   Name: "BCEWithLogitsLoss" 
