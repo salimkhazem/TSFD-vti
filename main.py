@@ -19,11 +19,11 @@ train_dataset, valid_dataset, train_paths, valid_paths = data_loader.create_data
         cfg["Dataset"]["args"]["root_dir"], validation_split=0.2
     )
 train_loader, valid_loader = data_loader.create_dataloaders(
-        train_dataset, valid_dataset, batch_size=8,
+        train_dataset, valid_dataset, batch_size=32,
     )
 logdir = pathlib.Path("logs")
 logdir = utils.generate_unique_logpath(logdir, "experiment_1")
-engine.train_one_epoch(model, criterion, optimizer, valid_loader, device)
+engine.train_one_epoch(model, criterion, optimizer, train_loader, device)
 engine.evaluate(model, criterion, valid_loader, device)
 
 
