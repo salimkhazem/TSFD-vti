@@ -53,13 +53,37 @@ def data_init(config, logger, device=None):
     return train_dataset, valid_dataset
 
 
+def init_model(config, device, logger):
+    model_cls = config["Model"]["Name"]
+    model_args = config["Model"]["args"]
+    input_shape = (
+        config["Dataset"]["args"]["resize"],
+        config["Dataset"]["args"]["resize"],
+    )
+    if model_args is not None:
+        model = eval(f"models.{model_cls}(**model_args)")
+    try:
+        model_summary = summary(model, input_size=(1, input_shape), verbose=0)
+        logger.info(f"Model summary:\n{str(model_summary)}")
+    except Exception as e:
+        logger.warn(f"Model summary failed using torchinfo: {e}")
+    logger.info(f"Model print:\n{model}")
+
+    return model
+
+
 if __name__ == "__main__":
     config_file = "/home/GPU/skhazem/VTI_exp/pipeline_vti/config/Contours.yml"
 
     # Initialize configuration and logger
     config, logger, path_logs = init_config(config_file)
 
+    device = utils.get_device()
+
     # Initialize data
-    train_dataset, valid_dataset = data_init(config, logger)
+    train_dataset, valid_dataset = data_init(config, logger, device)
+
+    # Initialize model
+    model = init_model(config, device, logger)
     # Example log to demonstrate functionality
     logger.info("Initialization complete.")
