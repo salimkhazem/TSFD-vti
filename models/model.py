@@ -120,13 +120,13 @@ class UNet(nn.Module):
 
     """
 
-    def __init__(self, n_channels, n_classes, bilinear=True):
+    def __init__(self, in_channels, nb_classes, bilinear=True):
         super().__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
+        self.in_channels = in_channels
+        self.n_classes = nb_classes
         self.bilinear = bilinear
 
-        self.inc = DoubleConv(n_channels, 64)
+        self.inc = DoubleConv(in_channels, 64)
         self.down1 = Down(64, 128)
         self.down2 = Down(128, 256)
         self.down3 = Down(256, 512)
@@ -135,7 +135,7 @@ class UNet(nn.Module):
         self.up2 = Up(512, 128, bilinear)
         self.up3 = Up(256, 64, bilinear)
         self.up4 = Up(128, 64, bilinear)
-        self.outc = OutConv(64, n_classes)
+        self.outc = OutConv(64, nb_classes)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -152,7 +152,7 @@ class UNet(nn.Module):
 
 
 if __name__ == "__main__":
-    model = UNet(n_channels=1, n_classes=1)
+    model = UNet(in_channels=1, nb_classes=1)
     x = torch.randn((1, 1, 256, 256))
     out = model(x)
     assert (
