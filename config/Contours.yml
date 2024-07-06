@@ -3,6 +3,7 @@ Dataset:
   cls: "DatasetVTI"
   args: 
     root_dir: "/mnt/WoodSeer/Slicing" 
+    validation_split: 0.2
     resize: 256 
 
 Data: 
