@@ -3,16 +3,18 @@ import pathlib
 import random
 
 from torch.utils.data import DataLoader  # type: ignore
+from tqdm import tqdm
 
-try: 
+try:
     from dataset import DatasetVTI
-except: 
+except:
     from .dataset import DatasetVTI
+
 
 def create_datasets(
     root_dir,
     num_slices=1,
-    resize=256, 
+    resize=256,
     augmentation=None,
     validation_split=0.2,
     input_filename="xray.vti",
@@ -50,16 +52,16 @@ def create_datasets(
     train_dataset = DatasetVTI(
         training_paths,
         num_slices,
-        resize, 
+        resize,
         augmentation,
         input_filename,
-        output_filename
+        output_filename,
     )
     val_dataset = DatasetVTI(
         validation_paths,
         num_slices,
-        resize, 
-        augmentation, 
+        resize,
+        augmentation,
         input_filename,
         output_filename,
     )
@@ -68,7 +70,7 @@ def create_datasets(
 
 
 def create_dataloaders(
-    train_dataset, valid_dataset, batch_size=8, shuffle=True
+    train_dataset, valid_dataset, batch_size=8, shuffle=False
 ):
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=shuffle
@@ -84,8 +86,15 @@ if __name__ == "__main__":
     train_dataset, valid_dataset, train_paths, valid_paths = create_datasets(
         root_dir, resize=256, validation_split=0.2
     )
+    print(
+        f"Training dataset: {len(train_dataset)} samples | Validation dataset: {len(valid_dataset)} samples"
+    )
     train_loader, valid_loader = create_dataloaders(
         train_dataset, valid_dataset
     )
-    for data in valid_loader: 
-        print(data["input"].shape, data["target"].shape) 
+    for data in tqdm(train_loader):
+        print(data["input"].shape, data["target"].shape)
+        break
+    for data in tqdm(valid_loader):
+        print(data["input"].shape, data["target"].shape)
+        break
