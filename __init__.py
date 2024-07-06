@@ -1,5 +1,5 @@
 from time import strftime
-from utils.logs import create_logger 
+from .utils import create_logger 
 
 def init_logger(date_suffix=None, **kwargs): 
     date = strftime("%Y%m%d")
