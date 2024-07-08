@@ -28,4 +28,7 @@ Training:
   SEED: 42 
   LR: 0.001
   Multi_GPU: False 
-
+  Checkpoint:
+    Resume: False
+    Date:
+    Time:
