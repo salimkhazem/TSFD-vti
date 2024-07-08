@@ -68,9 +68,38 @@ def init_model(config, device, logger):
     except Exception as e:
         logger.warn(f"Model summary failed using torchinfo: {e}")
     logger.info(f"Model print:\n{model}")
-
+    model.to(device)
     return model
 
+def init_optimizer_loss(config, model, logger): 
+    if config["Loss"]["Name"] is None: 
+        loss = nn.CrossEntropyLoss()
+    else: 
+        loss = utils.get_criterion(config)
+    optimzer = utils.get_optimizer(config, model)
+    logger.info(f"Loss function:\n{loss}")
+    logger.info(f"Optimizer:\n{optimzer}")
+    return loss, optimzer
+
+def resume(config, model, path_logs, logger): 
+    if config["Training"]["Checkpoint"] is not None:
+        resume_training = config["Training"]["Checkpoint"] 
+    else: 
+        config["Training"]["Checkpoint"]["Resume"] = False
+        resume_training = config["Training"]["Checkpoint"]
+
+    if resume_training["Resume"]: 
+        path_previous_logs = (Path(__file__).resolve().parent[2].absolute() 
+                              / "logs" / str(resume_training["Date"])
+                              / resume_training["Time"])
+        
+        if path_previous_logs.exists():
+            resume_training["Path"] = path_previous_logs 
+        else: 
+            logger.warning("Folder: {path_previous_logs} does not exist"
+                           " .... Checkpoint aborted")
+            resume_training["Resume"] = False
+    return resume_training
 
 if __name__ == "__main__":
     config_file = "/home/GPU/skhazem/VTI_exp/pipeline_vti/config/Contours.yml"
@@ -85,5 +114,12 @@ if __name__ == "__main__":
 
     # Initialize model
     model = init_model(config, device, logger)
+
+    # Initialize optimizer and loss
+    loss, optimizer = init_optimizer_loss(config, model, logger)
+
+    # Resume training
+    resume_training = resume(config, model, path_logs, logger)
+
     # Example log to demonstrate functionality
     logger.info("Initialization complete.")
