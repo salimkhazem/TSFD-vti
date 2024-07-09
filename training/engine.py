@@ -13,13 +13,15 @@ def train_one_epoch(model, criterion, optimizer, data_loader, grad_norm, device)
     with tqdm(data_loader, desc=f"Training", leave=False) as pbar: 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
-            assert images.shape[1] == model.n_channels, f"Expected {model.n_channels} channels, got {images.shape[0]}" 
+            assert images.shape[1] == model.in_channels, f"Expected {model.in_channels} channels, got {images.shape[0]}" 
             optimizer.zero_grad()
             output = model(images) 
             acc_model += (output.argmax(1) == targets).sum().item()
             loss = criterion(output, targets)
             loss_model += loss.item()
             loss.backward()
+            if grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_norm)
             optimizer.step()
             pbar.set_postfix(**{"train_loss": loss.item()})
             pbar.update(images.shape[0])
@@ -37,7 +39,7 @@ def evaluate(model, criterion, data_loader, device):
     with tqdm(data_loader, desc=f"Validation", leave=False) as pbar: 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
-            assert images.shape[1] == model.n_channels, f"Expected {model.n_channels} channels, got {images.shape[0]}" 
+            assert images.shape[1] == model.in_channels, f"Expected {model.in_channels} channels, got {images.shape[0]}" 
             output = model(images)
             loss = criterion(output, targets)
             correct_pred += (output.argmax(1) == targets).sum().item()
