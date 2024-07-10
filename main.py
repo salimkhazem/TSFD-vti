@@ -83,6 +83,31 @@ def init_optimizer_loss(config, model, logger):
     logger.info(f"Optimizer:\n{optimzer}")
     return loss, optimzer
 
+
+def resume(config, model, path_logs, logger): 
+    if config["Training"]["Checkpoint"] is not None:
+        resume_training = config["Training"]["Checkpoint"] 
+    else: 
+        config["Training"]["Checkpoint"]["Resume"] = False
+        resume_training = config["Training"]["Checkpoint"]
+
+    if resume_training["Resume"]: 
+        path_previous_logs = path_logs.resolve().parent.parent.absolute() / str(resume_training["Date"]) / resume_training["Time"]
+        
+        if path_previous_logs.exists():
+            resume_training["Path"] = path_previous_logs / "best_model.pth"
+            if resume_training["Path"].is_file(): 
+                logger.info(f"Checkpoint found at: {resume_training['Path']}")
+            else: 
+                logger.warning(f"File: {resume_training['Path']} does not exist"
+                            " .... Checkpoint aborted")
+                resume_training["Resume"] = False
+        else: 
+            logger.warning(f"Folder: {path_previous_logs} does not exist"
+                           " .... Checkpoint aborted")
+            resume_training["Resume"] = False
+    return resume_training
+
 def train(config, model, criterion, optimizer, train_loader, valid_loader, epochs, device, logger, path_logs): 
     logger.info(f"{str('-'*5)} Training the model for {epochs} epochs {str('-'*5)}") 
     grad_norm = config["Training"]["Clip_grad_norm"]
@@ -98,27 +123,6 @@ def train(config, model, criterion, optimizer, train_loader, valid_loader, epoch
             best_acc = acc_val 
             logger.info(f"New best accuracy: {best_acc:.4f} .... Saving model")
             torch.save(model.state_dict(), path_logs / "best_model.pth")
-
-
-def resume(config, model, path_logs, logger): 
-    if config["Training"]["Checkpoint"] is not None:
-        resume_training = config["Training"]["Checkpoint"] 
-    else: 
-        config["Training"]["Checkpoint"]["Resume"] = False
-        resume_training = config["Training"]["Checkpoint"]
-
-    if resume_training["Resume"]: 
-        path_previous_logs = (Path(__file__).resolve().parent[2].absolute() 
-                              / "logs" / str(resume_training["Date"])
-                              / resume_training["Time"])
-        
-        if path_previous_logs.exists():
-            resume_training["Path"] = path_previous_logs 
-        else: 
-            logger.warning("Folder: {path_previous_logs} does not exist"
-                           " .... Checkpoint aborted")
-            resume_training["Resume"] = False
-    return resume_training
 
 
 def track_experiments(fct): 
@@ -164,20 +168,40 @@ def main(logger, config, device, path_logs, train_data, valid_data, is_train, is
     batch_size = config["Data"]["Batch_size"]
     epochs = config["Training"]["Epochs"]
     shuffle = config["Data"]["Shuffle"]
+    multi_gpu = config["Training"]["Multi_GPU"]
     # Initialize data
-    train_loader, valid_loader = data_loader.create_dataloaders(train_data, valid_data, batch_size, shuffle)
+    train_loader, valid_loader = data_loader.create_dataloaders(train_data, valid_data, batch_size, shuffle,
+                                                                num_workers=15, pin_memory=True)
     # Initialize model
     model = init_model(config, device, logger) 
+    # resume from checkpoint 
 
+    if multi_gpu: 
+        n_gpu = torch.cuda.device_count()
+        if n_gpu > 1: 
+            model = nn.DataParallel(model)
+            logger.info(f"Using {n_gpu} GPUs for training")
+        else: 
+            logger.warning("Multi-GPU training requested but only one GPU available. Training with single GPU") 
     # Initialize optimizer and loss
     loss, optimizer = init_optimizer_loss(config, model, logger)
 
     # Resume training
     resume_training = resume(config, model, path_logs, logger)
-    
+
+    if resume_training["Resume"]: 
+        logger.info(f"Resuming training from checkpoint: {resume_training['Path']}")
+        if multi_gpu: 
+            try: 
+                model.module.load_state_dict(torch.load(resume_training["Path"]))
+            except:
+                model.load_state_dict(torch.load(resume_training["Path"]))
+        else: 
+            model.load_state_dict(torch.load(resume_training["Path"]))
+
+
     # Example log to demonstrate functionality
     logger.info("Initialization complete.")
-
     # Train model
     if is_train: 
         logger.info(f"{str('-'*20)} Training {str('-'*20)}") 
