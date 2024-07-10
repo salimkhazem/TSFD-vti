@@ -13,7 +13,10 @@ def train_one_epoch(model, criterion, optimizer, data_loader, grad_norm, device)
     with tqdm(data_loader, desc=f"Training", leave=False) as pbar: 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
-            assert images.shape[1] == model.in_channels, f"Expected {model.in_channels} channels, got {images.shape[0]}" 
+            try: 
+                assert images.shape[1] == model.in_channels, f"Expected {model.in_channels} channels, got {images.shape[0]}" 
+            except: 
+                assert images.shape[1] == model.module.in_channels, f"Expected {model.module.in_channels} channels, got {images.shape[0]}" 
             optimizer.zero_grad()
             output = model(images) 
             acc_model += (output.argmax(1) == targets).sum().item()
