@@ -8,8 +8,9 @@ import torch
 import tqdm
 import vtk
 import numpy as np
-from torch.utils.data import Dataset
 from vtk.util import numpy_support
+from joblib import Parallel, delayed
+from torch.utils.data import Dataset
 
 
 def vtkToNumpy(data):
@@ -60,37 +61,36 @@ class DatasetVTI(Dataset):
         self.data_paths = data_paths
 
         self.num_chunks_per_file = []
-        for dp in tqdm.tqdm(self.data_paths, desc="Parsing VTI file"):
-            input_vti = read_vti(dp / input_filename)
-            output_vti = read_vti(dp / output_filename)
-            if (
-                input_vti is None
-                or output_vti is None
-                or input_vti.shape != output_vti.shape
-            ):
-                raise RuntimeError(
-                    f"Got different input/targets shape, {input_vti.shape} != {output_vti.shape}"
-                )
-                continue
-            self.num_chunks_per_file.append(
-                input_vti.shape[2] // self.num_slices
+        # Parallel processing of data paths
+        self.num_chunks_per_file = Parallel(n_jobs=-1)(
+            delayed(self.process_path)(
+                dp, self.input_filename, self.output_filename, self.num_slices
             )
+            for dp in tqdm.tqdm(self.data_paths, desc="Parsing VTI file")
+        )
         self.total_num_chunks = sum(self.num_chunks_per_file)
+
+    @staticmethod
+    def process_path(dp, input_filename, output_filename, num_slices):
+        input_vti = read_vti(dp / input_filename)
+        output_vti = read_vti(dp / output_filename)
+        if (
+            input_vti is None
+            or output_vti is None
+            or input_vti.shape != output_vti.shape
+        ):
+            raise RuntimeError(
+                f"Got different input/targets shape, {input_vti.shape} != {output_vti.shape}"
+            )
+        return input_vti.shape[2] // num_slices
 
     def __len__(self):
         return self.total_num_chunks * len(self.data_paths)
 
-    def __getitem__(self, idx):
-        assert idx >= 0 and idx < self.total_num_chunks
-        for idp, (dp, nc) in enumerate(
-            zip(self.data_paths, self.num_chunks_per_file)
-        ):
-            if idx < nc:
-                break
-            idx -= nc
+    def _process_chunk(self, dp, idx):
         input_vti = read_vti(dp / self.input_filename)
         input_chunk = input_vti[
-            :, :, (idx) * self.num_slices: (idx + 1) * self.num_slices
+            :, :, idx * self.num_slices: (idx + 1) * self.num_slices
         ]
         input_chunk = np.transpose(input_chunk, (2, 0, 1))
         hmin, hmax = 100, 1500
@@ -98,7 +98,7 @@ class DatasetVTI(Dataset):
         input_chunk = 2.0 * ((input_chunk - hmin) / (hmax - hmin) - 0.5)
         output_vti = read_vti(dp / self.output_filename)
         output_chunk = output_vti[
-            :, :, (idx) * self.num_slices: (idx + 1) * self.num_slices
+            :, :, idx * self.num_slices: (idx + 1) * self.num_slices
         ]
         output_chunk = np.transpose(output_chunk, (2, 0, 1))
         assert (
@@ -116,7 +116,18 @@ class DatasetVTI(Dataset):
         if self.transform is not None:
             input_chunk = self.transform(input_chunk)
             output_chunk = self.transform(output_chunk)
+        return input_chunk, output_chunk
 
+    def __getitem__(self, idx):
+        assert idx >= 0 and idx < self.total_num_chunks
+        for idp, (dp, nc) in enumerate(
+            zip(self.data_paths, self.num_chunks_per_file)
+        ):
+            if idx < nc:
+                break
+            idx -= nc
+
+        input_chunk, output_chunk = self._process_chunk(dp, idx)
         return {
             "input": torch.tensor(input_chunk, dtype=torch.float),
             "target": torch.tensor(output_chunk, dtype=torch.float),

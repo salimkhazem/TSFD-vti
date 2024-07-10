@@ -70,13 +70,26 @@ def create_datasets(
 
 
 def create_dataloaders(
-    train_dataset, valid_dataset, batch_size=8, shuffle=False
+    train_dataset,
+    valid_dataset,
+    batch_size=128,
+    shuffle=False,
+    num_workers=20,
+    pin_memory=True,
 ):
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=shuffle
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
     )
     valid_loader = DataLoader(
-        valid_dataset, batch_size=batch_size, shuffle=False
+        valid_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
     )
     return train_loader, valid_loader
 
