@@ -7,7 +7,7 @@ Dataset:
     resize: 256 
 
 Data: 
-  Batch_size: 32 
+  Batch_size: 128 
   Shuffle: False 
 
 Model: 
@@ -28,8 +28,8 @@ Training:
   SEED: 42 
   LR: 0.001
   Clip_grad_norm: 1
-  Multi_GPU: False 
+  Multi_GPU: True 
   Checkpoint:
     Resume: False
-    Date:
-    Time:
+    Date: "20240709"
+    Time: "13h37min40s"
