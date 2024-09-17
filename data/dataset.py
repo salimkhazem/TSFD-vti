@@ -90,7 +90,7 @@ class DatasetVTI(Dataset):
     def _process_chunk(self, dp, idx):
         input_vti = read_vti(dp / self.input_filename)
         input_chunk = input_vti[
-            :, :, idx * self.num_slices: (idx + 1) * self.num_slices
+            :, :, idx * self.num_slices : (idx + 1) * self.num_slices
         ]
         input_chunk = np.transpose(input_chunk, (2, 0, 1))
         hmin, hmax = 100, 1500
@@ -98,20 +98,16 @@ class DatasetVTI(Dataset):
         input_chunk = 2.0 * ((input_chunk - hmin) / (hmax - hmin) - 0.5)
         output_vti = read_vti(dp / self.output_filename)
         output_chunk = output_vti[
-            :, :, idx * self.num_slices: (idx + 1) * self.num_slices
+            :, :, idx * self.num_slices : (idx + 1) * self.num_slices
         ]
         output_chunk = np.transpose(output_chunk, (2, 0, 1))
         assert (
             input_chunk.shape == output_chunk.shape
         ), f"Expected {input_chunk.shape} but got {output_chunk.shape}"
         if self.resize is not None:
-            input_chunk = cv2.resize(
-                input_chunk[0], (self.resize, self.resize)
-            )
+            input_chunk = cv2.resize(input_chunk[0], (self.resize, self.resize))
             input_chunk = np.expand_dims(input_chunk, axis=0)
-            output_chunk = cv2.resize(
-                output_chunk[0], (self.resize, self.resize)
-            )
+            output_chunk = cv2.resize(output_chunk[0], (self.resize, self.resize))
             output_chunk = np.expand_dims(output_chunk, axis=0)
         if self.transform is not None:
             input_chunk = self.transform(input_chunk)
@@ -120,9 +116,7 @@ class DatasetVTI(Dataset):
 
     def __getitem__(self, idx):
         assert idx >= 0 and idx < self.total_num_chunks
-        for idp, (dp, nc) in enumerate(
-            zip(self.data_paths, self.num_chunks_per_file)
-        ):
+        for idp, (dp, nc) in enumerate(zip(self.data_paths, self.num_chunks_per_file)):
             if idx < nc:
                 break
             idx -= nc
