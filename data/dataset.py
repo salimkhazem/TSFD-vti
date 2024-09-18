@@ -3,6 +3,10 @@ This module contains the DatasetVTI class, which is a subclass of the PyTorch
 Dataset class. It is used to load VTI files and extract slices from them.
 """
 
+import argparse
+import logging
+
+import xarray as xr
 import cv2
 import torch
 import tqdm
@@ -11,6 +15,9 @@ import numpy as np
 from vtk.util import numpy_support
 from joblib import Parallel, delayed
 from torch.utils.data import Dataset
+import matplotlib.pyplot as plt
+
+import nrrdparser
 
 
 def vtkToNumpy(data):
@@ -30,6 +37,13 @@ def read_vti(file):
     vtk_f.Update()
     np_array = vtkToNumpy(vtk_f.GetOutput())
     return np_array
+
+
+def load_nc_chunk(nc_filepath, chunk_idx, num_slices):
+    ds = xr.open_dataset(nc_filepath)
+    z_vals = ds.data.isel(z=slice(chunk_idx, chunk_idx + num_slices))
+    z_vals = z_vals.to_numpy()
+    return z_vals
 
 
 class DatasetVTI(Dataset):
@@ -126,3 +140,55 @@ class DatasetVTI(Dataset):
             "input": torch.tensor(input_chunk, dtype=torch.float),
             "target": torch.tensor(output_chunk, dtype=torch.float),
         }
+
+
+def test_load_chunk():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("ncfile", type=str, help="The path to the NRRD file to load")
+    parser.add_argument(
+        "--offset", type=int, default=0, help="Offset for the first slice to load"
+    )
+    parser.add_argument(
+        "--num_slices", type=int, default=1, help="Number of slices per sample"
+    )
+    args = parser.parse_args()
+
+    load_nc_chunk(args.ncfile, args.offset, args.num_slices)
+
+
+def test_reader():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("rootdir", type=str, help="Root directory containing VTI files")
+    parser.add_argument(
+        "--num_slices", type=int, default=1, help="Number of slices per sample"
+    )
+    parser.add_argument(
+        "--input_filename", type=str, default="xray.vti", help="Input VTI filename"
+    )
+    parser.add_argument(
+        "--output_filename",
+        type=str,
+        default="mes_0_255_0.vti",
+        help="Output VTI filename",
+    )
+    args = parser.parse_args()
+
+    dataset = DatasetVTI(
+        args.rootdir,
+        args.num_slices,
+        input_filename=args.input_filename,
+        output_filename=args.output_filename,
+    )
+
+    # Index the dataset to test its loading
+    for i in range(len(dataset)):
+        input_chunk, output_chunk = dataset[i]
+        logging.info(
+            f"Input shape: {input_chunk.shape}, Output shape: {output_chunk.shape}"
+        )
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    # test_reader()
+    test_load_chunk()
