@@ -5,6 +5,7 @@ Dataset class. It is used to load VTI files and extract slices from them.
 
 import argparse
 import logging
+import pathlib
 
 import xarray as xr
 import cv2
@@ -142,53 +143,140 @@ class DatasetVTI(Dataset):
         }
 
 
-def test_load_chunk():
+class DatasetNC(Dataset):
+    """
+    Dataset for the NC files
+    Args:
+        - rootdir (str | pathlib.Path): The rootdir of the dataset
+        - num_slices (int): Number of slices to extract from each NC file.
+        - transform (callable): Optional transform function to be applied
+          to the input/target data.
+        - input_filename (str): Name of the input file.
+        - output_filename (str): Name of the output file.
+    """
+
+    def __init__(
+        self,
+        rootdir,
+        num_slices=1,
+        transform=None,
+        input_filename="data.nc",
+        output_filename="label.nc",
+    ):
+        self.rootdir = rootdir
+        self.num_slices = num_slices
+        self.transform = transform
+        self.input_filename = input_filename
+        self.output_filename = output_filename
+
+        self.num_chunks_per_file = []
+
+        # Recursively find all the input files in the root directory
+        # and keep the input/output pairs when both files are co-present
+        if isinstance(rootdir, str):
+            rootdir = pathlib.Path(rootdir)
+
+        self.data_paths = []
+        for dp in rootdir.rglob(input_filename):
+            if (dp.parent / output_filename).exists():
+                self.data_paths.append(dp.parent)
+        logging.debug(f"Found {self.data_paths} data paths")
+
+        # Parallel processing of data paths
+        self.num_chunks_per_file = Parallel(n_jobs=-1)(
+            delayed(self.process_path)(
+                dp, self.input_filename, self.output_filename, self.num_slices
+            )
+            for dp in tqdm.tqdm(self.data_paths, desc="Parsing NC file")
+        )
+        self.total_num_chunks = sum(self.num_chunks_per_file)
+        logging.debug(f"Total number of chunks: {self.total_num_chunks}")
+
+    @staticmethod
+    def process_path(dp, input_filename, output_filename, num_slices):
+        input_ds = xr.open_dataset(dp / input_filename)  # z, x, y
+        output_ds = xr.open_dataset(dp / output_filename)  # z, x, y
+        if input_ds.shape != output_ds.shape:
+            raise RuntimeError(
+                f"Got different input/targets shape, {input_ds.shape} != {output_ds.shape}"
+            )
+        return input_ds.shape[0] // num_slices
+
+    def __len__(self):
+        return self.total_num_chunks * len(self.data_paths)
+
+    def __getitem__(self, idx):
+        assert idx >= 0 and idx < self.total_num_chunks
+        for idp, (dp, nc) in enumerate(zip(self.data_paths, self.num_chunks_per_file)):
+            # Locate the files that contain the requested chunk
+            if idx < nc:
+                break
+            idx -= nc
+
+        # We found the datapath from which to extract the  idx chunk
+        input_chunk = load_nc_chunk(dp / self.input_filename, idx, self.num_slices)
+        output_chunk = load_nc_chunk(dp / self.output_filename, idx, self.num_slices)
+
+        if self.transform is not None:
+            input_tensor, output_tensor = self.transform(input_chunk, output_chunk)
+        else:
+            input_tensor = torch.tensor(input_chunk)
+            output_tensor = torch.tensor(output_chunk)
+
+        return {"input": input_tensor, "target": output_tensor}
+
+
+def test_nc_dataset():
     parser = argparse.ArgumentParser()
-    parser.add_argument("ncfile", type=str, help="The path to the NRRD file to load")
-    parser.add_argument(
-        "--offset", type=int, default=0, help="Offset for the first slice to load"
-    )
+    parser.add_argument("rootdir", type=str, help="Root directory containing NC files")
     parser.add_argument(
         "--num_slices", type=int, default=1, help="Number of slices per sample"
     )
-    args = parser.parse_args()
-
-    load_nc_chunk(args.ncfile, args.offset, args.num_slices)
-
-
-def test_reader():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("rootdir", type=str, help="Root directory containing VTI files")
     parser.add_argument(
-        "--num_slices", type=int, default=1, help="Number of slices per sample"
-    )
-    parser.add_argument(
-        "--input_filename", type=str, default="xray.vti", help="Input VTI filename"
+        "--input_filename", type=str, default="data.nc", help="Input NC filename"
     )
     parser.add_argument(
         "--output_filename",
         type=str,
-        default="mes_0_255_0.vti",
-        help="Output VTI filename",
+        default="label.nc",
+        help="Output NC filename",
     )
+
     args = parser.parse_args()
 
-    dataset = DatasetVTI(
+    dataset = DatasetNC(
         args.rootdir,
         args.num_slices,
         input_filename=args.input_filename,
         output_filename=args.output_filename,
     )
 
-    # Index the dataset to test its loading
-    for i in range(len(dataset)):
-        input_chunk, output_chunk = dataset[i]
+    # Let us randomly load some chunks
+    for i in range(10):
+        idx = np.random.randint(len(dataset))
+        sample = dataset[idx]
         logging.info(
-            f"Input shape: {input_chunk.shape}, Output shape: {output_chunk.shape}"
+            f"Input shape: {sample['input'].shape}, Output shape: {sample['target'].shape}"
         )
+
+    # Let us display one slice of a 4 chunks, with its input along with its target
+    num = 4
+    plt.figure(figsize=(10, 10))
+    for i in range(num):
+        idx = np.random.randint(len(dataset))
+        sample = dataset[idx]
+        input_slice = sample["input"][0]
+        target_slice = sample["target"][0]
+        plt.subplot(num, 2, 2 * i + 1)
+        plt.imshow(input_slice, cmap="gray")
+        plt.title("Input")
+        plt.subplot(num, 2, 2 * i + 2)
+        plt.imshow(target_slice, cmap="gray")
+        plt.title("Target")
+    plt.tight_layout()
+    plt.savefig("sample.png", dpi=300)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # test_reader()
-    test_load_chunk()
+    logging.basicConfig(level=logging.DEBUG)
+    test_nc_dataset()
