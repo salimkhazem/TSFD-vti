@@ -9,3 +9,4 @@ vtk==9.3.0
 joblib
 opencv-python-headless
 xarray
+netcdf4
