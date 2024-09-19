@@ -194,16 +194,19 @@ class DatasetNC(Dataset):
     def process_path(dp, input_filename, output_filename, num_slices):
         input_ds = xr.open_dataset(dp / input_filename)  # z, x, y
         output_ds = xr.open_dataset(dp / output_filename)  # z, x, y
-        if input_ds.shape != output_ds.shape:
+        input_dims = [input_ds.sizes[d] for d in ["x", "y", "z"]]
+        output_dims = [output_ds.sizes[d] for d in ["x", "y", "z"]]
+        if input_dims != output_dims:
             raise RuntimeError(
-                f"Got different input/targets shape, {input_ds.shape} != {output_ds.shape}"
+                f"Got different input/targets shape, {input_dims} != {output_dims}"
             )
-        return input_ds.shape[0] // num_slices
+        return input_ds.sizes["z"] // num_slices
 
     def __len__(self):
-        return self.total_num_chunks * len(self.data_paths)
+        return self.total_num_chunks
 
     def __getitem__(self, idx):
+        print(f"Getting idx {idx} ")
         assert idx >= 0 and idx < self.total_num_chunks
         for idp, (dp, nc) in enumerate(zip(self.data_paths, self.num_chunks_per_file)):
             # Locate the files that contain the requested chunk
@@ -259,7 +262,7 @@ def test_nc_dataset():
 
     # Let us display one slice of a 4 chunks, with its input along with its target
     num = 4
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(10, 40))
     for i in range(num):
         idx = np.random.randint(len(dataset))
         sample = dataset[idx]
@@ -268,9 +271,11 @@ def test_nc_dataset():
         plt.subplot(num, 2, 2 * i + 1)
         plt.imshow(input_slice, cmap="gray")
         plt.title("Input")
+        plt.axis("off")
         plt.subplot(num, 2, 2 * i + 2)
         plt.imshow(target_slice, cmap="gray")
         plt.title("Target")
+        plt.axis("off")
     plt.tight_layout()
     plt.savefig("sample.png", dpi=300)
 
