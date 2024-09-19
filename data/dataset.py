@@ -188,7 +188,9 @@ class DatasetNC(Dataset):
             for dp in tqdm.tqdm(self.data_paths, desc="Parsing NC file")
         )
         self.total_num_chunks = sum(self.num_chunks_per_file)
-        logging.debug(f"Total number of chunks: {self.total_num_chunks}")
+        logging.info(
+            f"Total number of loaded chunks of {self.num_slices} slices: {self.total_num_chunks}"
+        )
 
     @staticmethod
     def process_path(dp, input_filename, output_filename, num_slices):
@@ -262,24 +264,22 @@ def test_nc_dataset():
 
     # Let us display one slice of a 4 chunks, with its input along with its target
     num = 4
-    plt.figure(figsize=(10, 40))
+    fig, axes = plt.subplots(nrows=num, ncols=2, figsize=(5, 20))
     for i in range(num):
         idx = np.random.randint(len(dataset))
         sample = dataset[idx]
         input_slice = sample["input"][0]
         target_slice = sample["target"][0]
-        plt.subplot(num, 2, 2 * i + 1)
-        plt.imshow(input_slice, cmap="gray")
-        plt.title("Input")
-        plt.axis("off")
-        plt.subplot(num, 2, 2 * i + 2)
-        plt.imshow(target_slice, cmap="gray")
-        plt.title("Target")
-        plt.axis("off")
+        axes[i, 0].imshow(input_slice, cmap="gray")
+        axes[i, 0].set_title("Input")
+        axes[i, 0].axis("off")
+        axes[i, 1].imshow(target_slice, cmap="gray")
+        axes[i, 1].set_title("Target")
+        axes[i, 1].axis("off")
     plt.tight_layout()
     plt.savefig("sample.png", dpi=300)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     test_nc_dataset()
