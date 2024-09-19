@@ -18,8 +18,6 @@ from joblib import Parallel, delayed
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 
-import nrrdparser
-
 
 def vtkToNumpy(data):
     """
