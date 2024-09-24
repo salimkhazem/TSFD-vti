@@ -43,7 +43,7 @@ def data_init(config, logger, device=None):
     logger.info(f"Using random seed: {random_seed}")
     utils.seed_everything(random_seed)
     train_dataset, valid_dataset, train_paths, valid_paths = (
-        data_loader.create_datasets(
+        data_loader.create_datasets_nc(
             config["Dataset"]["args"]["root_dir"],
             validation_split=config["Dataset"]["args"]["validation_split"],
         )
@@ -58,10 +58,11 @@ def data_init(config, logger, device=None):
 def init_model(config, device, logger):
     model_cls = config["Model"]["Name"]
     model_args = config["Model"]["args"]
-    input_shape = (
-        config["Dataset"]["args"]["resize"],
-        config["Dataset"]["args"]["resize"],
-    )
+    #input_shape = (
+    #    config["Dataset"]["args"]["resize"],
+    #    config["Dataset"]["args"]["resize"],
+    #)
+    input_shape = 256
     if model_args is not None:
         model = eval(f"models.{model_cls}(**model_args)")
     try:
