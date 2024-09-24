@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader  # type: ignore
 from tqdm import tqdm
 
 try:
-    from dataset import DatasetVTI
+    from dataset import DatasetVTI, DatasetNC, DatasetNCList
 except:
-    from .dataset import DatasetVTI
+    from .dataset import DatasetVTI, DatasetNC, DatasetNCList
 
 
 def create_datasets(
@@ -69,6 +69,62 @@ def create_datasets(
     return train_dataset, val_dataset, training_paths, validation_paths
 
 
+
+def create_datasets_nc(
+    root_dir,
+    num_slices=1,
+    transform=None,
+    validation_split=0.2,
+    input_filename="xray.nc",
+    output_filename="mes_0_255_0.nc",
+):
+    """
+    Create training and validation datasets from NC files.
+    Args:
+        rootdir (str): Root directory containing the NC files.
+        num_slices (int): Number of slices to extract from each NC file.
+        transform (callable): Optional transform function to be applied
+        validation_split (float): Fraction of the data to use as validation.
+        input_filename (str): Name of the input file.
+        output_filename (str): Name of the output file.
+    Returns:
+        train_dataset (DatasetNC): Training dataset.
+        val_dataset (DatasetNC): Validation dataset.
+        training_paths (list): List of paths to the training NC files.
+        validation_paths (list): List of paths to the validation NC files.
+    """
+    all_data_paths = []
+    for subdir, dirs, files in os.walk(root_dir):
+        for diri in dirs:
+            datapath = pathlib.Path(os.path.join(subdir, diri))
+            input_filepath = datapath / input_filename
+            output_filepath = datapath / output_filename
+            if input_filepath.exists() and output_filepath.exists():
+                all_data_paths.append(datapath)
+
+    random.shuffle(all_data_paths)
+    validation_size = int(len(all_data_paths) * validation_split)
+    validation_paths = all_data_paths[:validation_size]
+    training_paths = all_data_paths[validation_size:]
+
+    train_dataset = DatasetNCList(
+        training_paths,
+        num_slices,
+        transform,
+        input_filename,
+        output_filename,
+    )
+    val_dataset = DatasetNCList(
+        validation_paths,
+        num_slices,
+        transform,
+        input_filename,
+        output_filename,
+    )
+
+    return train_dataset, val_dataset, training_paths, validation_paths
+
+
 def create_dataloaders(
     train_dataset,
     valid_dataset,
@@ -96,8 +152,12 @@ def create_dataloaders(
 
 if __name__ == "__main__":
     root_dir = "/mnt/WoodSeer/Slicing"
-    train_dataset, valid_dataset, train_paths, valid_paths = create_datasets(
-        root_dir, resize=256, validation_split=0.2
+    root_dir_nc = "/mnt/WoodSeer/dream-storage/Slicing/"
+    # train_dataset, valid_dataset, train_paths, valid_paths = create_datasets(
+    #     root_dir, resize=256, validation_split=0.2
+    # )
+    train_dataset, valid_dataset, train_paths, valid_paths = create_datasets_nc(
+         root_dir_nc, validation_split=0.2
     )
     print(
         f"Training dataset: {len(train_dataset)} samples | Validation dataset: {len(valid_dataset)} samples"
