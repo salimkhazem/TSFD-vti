@@ -1,0 +1,34 @@
+--- 
+Dataset: 
+  cls: "DatasetNCList"
+  args: 
+    root_dir: "/mnt/WoodSeer/dream-storage/Slicing/" 
+    validation_split: 0.2
+
+Data: 
+  Batch_size: 32 
+  Shuffle: False 
+
+Model: 
+  Name: "UNet" 
+  args: 
+    in_channels: 1
+    nb_classes: 1
+
+Loss: 
+  Name: "BCEWithLogitsLoss" 
+
+Optimizer:
+  Name: "Adam"
+  lr: 0.001
+
+Training: 
+  Epochs: 50 
+  SEED: 42 
+  LR: 0.001
+  Clip_grad_norm: 1
+  Multi_GPU: True 
+  Checkpoint:
+    Resume: False
+    Date: "20240709"
+    Time: "13h37min40s"
