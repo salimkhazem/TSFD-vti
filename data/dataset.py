@@ -208,7 +208,93 @@ class DatasetNC(Dataset):
         return self.total_num_chunks
 
     def __getitem__(self, idx):
-        print(f"Getting idx {idx} ")
+        #print(f"Getting idx {idx} ")
+        assert idx >= 0 and idx < self.total_num_chunks
+        for idp, (dp, nc) in enumerate(zip(self.data_paths, self.num_chunks_per_file)):
+            # Locate the files that contain the requested chunk
+            if idx < nc:
+                break
+            idx -= nc
+
+        # We found the datapath from which to extract the  idx chunk
+        input_chunk = load_nc_chunk(dp / self.input_filename, idx, self.num_slices)
+        output_chunk = load_nc_chunk(dp / self.output_filename, idx, self.num_slices)
+
+        if self.transform is not None:
+            input_tensor, output_tensor = self.transform(input_chunk, output_chunk)
+        else:
+            input_tensor = torch.tensor(input_chunk)
+            output_tensor = torch.tensor(output_chunk)
+
+        return {"input": input_tensor, "target": output_tensor}
+
+class DatasetNCList(Dataset):
+    """
+    Dataset for the NC files
+    Args:
+        - rootdirs (list | pathlib.Path): The list of root directories for the dataset.
+        - num_slices (int): Number of slices to extract from each NC file.
+        - transform (callable): Optional transform function to be applied
+          to the input/target data.
+        - input_filename (str): Name of the input file.
+        - output_filename (str): Name of the output file.
+    """
+
+    def __init__(
+        self,
+        root_dir,
+        num_slices=1,
+        transform=None,
+        input_filename="data.nc",
+        output_filename="label.nc",
+    ):
+        self.rootdirs = root_dir if isinstance(root_dir, list) else [root_dir]
+        self.num_slices = num_slices
+        self.transform = transform
+        self.input_filename = input_filename
+        self.output_filename = output_filename
+
+        self.num_chunks_per_file = []
+
+        self.data_paths = []
+        for rootdir in self.rootdirs:
+            if isinstance(rootdir, str):
+                rootdir = pathlib.Path(rootdir)
+            # Check each directory in the list
+            if (rootdir / self.input_filename).exists() and (rootdir / self.output_filename).exists():
+                self.data_paths.append(rootdir)
+
+        logging.debug(f"Found {self.data_paths} data paths")
+
+        # Parallel processing of data paths
+        self.num_chunks_per_file = Parallel(n_jobs=-1)(
+            delayed(self.process_path)(
+                dp, self.input_filename, self.output_filename, self.num_slices
+            )
+            for dp in tqdm.tqdm(self.data_paths, desc="Parsing NC file")
+        )
+        self.total_num_chunks = sum(self.num_chunks_per_file)
+        logging.info(
+            f"Total number of loaded chunks of {self.num_slices} slices: {self.total_num_chunks}"
+        )
+
+    @staticmethod
+    def process_path(dp, input_filename, output_filename, num_slices):
+        input_ds = xr.open_dataset(dp / input_filename)  # z, x, y
+        output_ds = xr.open_dataset(dp / output_filename)  # z, x, y
+        input_dims = [input_ds.sizes[d] for d in ["x", "y", "z"]]
+        output_dims = [output_ds.sizes[d] for d in ["x", "y", "z"]]
+        if input_dims != output_dims:
+            raise RuntimeError(
+                f"Got different input/targets shape, {input_dims} != {output_dims}"
+            )
+        return input_ds.sizes["z"] // num_slices
+
+    def __len__(self):
+        return self.total_num_chunks
+
+    def __getitem__(self, idx):
+        #print(f"Getting idx {idx} ")
         assert idx >= 0 and idx < self.total_num_chunks
         for idp, (dp, nc) in enumerate(zip(self.data_paths, self.num_chunks_per_file)):
             # Locate the files that contain the requested chunk
@@ -231,7 +317,7 @@ class DatasetNC(Dataset):
 
 def test_nc_dataset():
     parser = argparse.ArgumentParser()
-    parser.add_argument("rootdir", type=str, help="Root directory containing NC files")
+    parser.add_argument("--rootdir", type=str, help="Root directory containing NC files")
     parser.add_argument(
         "--num_slices", type=int, default=1, help="Number of slices per sample"
     )
