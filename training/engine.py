@@ -10,7 +10,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, grad_norm, device)
         device = next(model.parameters()).device 
     loss_model, acc_model = 0, 0 
     model.train()
-    with tqdm(data_loader, desc=f"Training", leave=False) as pbar: 
+    with tqdm(data_loader, total=len(data_loader.dataset), desc=f"Training", leave=False) as pbar: 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
             try: 
@@ -39,7 +39,7 @@ def evaluate(model, criterion, data_loader, device):
     model.eval()
     total_loss = 0
     correct_pred = 0 
-    with tqdm(data_loader, desc=f"Validation", leave=False) as pbar: 
+    with tqdm(data_loader, total=len(data_loader.dataset), desc=f"Validation", leave=False) as pbar: 
         for batch in pbar:
             images, targets = batch["input"].to(device), batch["target"].to(device) 
             assert images.shape[1] == model.in_channels, f"Expected {model.in_channels} channels, got {images.shape[0]}" 
