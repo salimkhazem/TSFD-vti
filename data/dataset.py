@@ -191,17 +191,20 @@ class DatasetNC(Dataset):
         logging.info(
             f"Total number of loaded chunks of {self.num_slices} slices: {self.total_num_chunks}"
         )
-
     @staticmethod
     def process_path(dp, input_filename, output_filename, num_slices):
         input_ds = xr.open_dataset(dp / input_filename)  # z, x, y
         output_ds = xr.open_dataset(dp / output_filename)  # z, x, y
-        input_dims = [input_ds.sizes[d] for d in ["x", "y", "z"]]
-        output_dims = [output_ds.sizes[d] for d in ["x", "y", "z"]]
-        if input_dims != output_dims:
-            raise RuntimeError(
-                f"Got different input/targets shape, {input_dims} != {output_dims}"
-            )
+        try: 
+            input_dims = [input_ds.sizes[d] for d in ["x", "y", "z"]]
+            output_dims = [output_ds.sizes[d] for d in ["x", "y", "z"]]
+            if input_dims != output_dims:
+                raise RuntimeError(
+                    f"Got different input/targets shape, {input_dims} != {output_dims}"
+                )
+        finally:
+            input_ds.close()
+            output_ds.close() 
         return input_ds.sizes["z"] // num_slices
 
     def __len__(self):
@@ -282,12 +285,17 @@ class DatasetNCList(Dataset):
     def process_path(dp, input_filename, output_filename, num_slices):
         input_ds = xr.open_dataset(dp / input_filename)  # z, x, y
         output_ds = xr.open_dataset(dp / output_filename)  # z, x, y
-        input_dims = [input_ds.sizes[d] for d in ["x", "y", "z"]]
-        output_dims = [output_ds.sizes[d] for d in ["x", "y", "z"]]
-        if input_dims != output_dims:
-            raise RuntimeError(
-                f"Got different input/targets shape, {input_dims} != {output_dims}"
-            )
+        try: 
+            input_dims = [input_ds.sizes[d] for d in ["x", "y", "z"]]
+            output_dims = [output_ds.sizes[d] for d in ["x", "y", "z"]]
+            if input_dims != output_dims:
+                raise RuntimeError(
+                    f"Got different input/targets shape, {input_dims} != {output_dims}"
+                )
+        finally: 
+            input_ds.close()
+            output_ds.close()
+
         return input_ds.sizes["z"] // num_slices
 
     def __len__(self):
